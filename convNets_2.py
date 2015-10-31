@@ -1,4 +1,4 @@
-#first_script.py
+#ConvNets_2.py
 
 import pandas
 from pandas import DataFrame
@@ -6,8 +6,10 @@ from random import shuffle
 import numpy as np 
 from sklearn.utils import shuffle
 from datetime import datetime
+import cPickle as pickle
 from skimage import exposure
 from skimage import data
+
 
 kpTemp = pandas.read_csv("training.csv")
 col = kpTemp.columns[:-1].values
@@ -49,21 +51,14 @@ def load(test=False, cols=None):
     p2 = np.percentile(X, 5)
     p98 = np.percentile(X, 95)
     X = exposure.rescale_intensity(X, in_range=(p2, p98))
+    
 
     X = X/255
 
     print X
-    
+
     X= X.astype(np.float32)
     #used to cast the numpy array into float32 type
-
-
-    '''
-    #Implementing Contrast Stretching
-    p2 = np.percentile(X, 5)
-    p98 = np.percentile(X, 95)
-    X = exposure.rescale_intensity(X, in_range=(p2, p98))
-    '''
 
     print 'hello1',X
 
@@ -102,15 +97,21 @@ def load(test=False, cols=None):
     return X,y
 
 
-X,y = load()
+#X,y = load()
+
 
 
 '''
-
 print("X.shape == {}; X.min == {}; X.max == {}".format(
     X.shape, X.min(), X.max()))
 print("y.shape == {}; y.min == {}; y.max == {}".format(
     y.shape, y.min(), y.max()))'''
+
+def load2d(test=False, cols=None):
+    X, y = load(test=test, cols= cols)
+    X = X.reshape(-1,1,96,96)
+    return X, y
+
 
 
 #Now we will start using Lasagne
@@ -125,64 +126,47 @@ from lasagne.updates import nesterov_momentum
 
 from nolearn.lasagne import NeuralNet
 
-net1 = NeuralNet(             
-        layers = [ #3 layers, including 1 hidden layer
-                ('input', layers.InputLayer),
-                ('hidden', layers.DenseLayer),
-                ('output', layers.DenseLayer),
+net2 = NeuralNet(
+    layers=[
+        ('input', layers.InputLayer),
+        ('conv1', layers.Conv2DLayer),
+        ('pool1', layers.MaxPool2DLayer),
+        ('conv2', layers.Conv2DLayer),
+        ('pool2', layers.MaxPool2DLayer),
+        ('conv3', layers.Conv2DLayer),
+        ('pool3', layers.MaxPool2DLayer),
+        ('hidden4', layers.DenseLayer),
+        ('hidden5', layers.DenseLayer),
+        ('output', layers.DenseLayer),
+        ],
+    input_shape=(None, 1, 96, 96),
+    conv1_num_filters=32, conv1_filter_size=(3, 3), pool1_pool_size=(2, 2),
+    conv2_num_filters=64, conv2_filter_size=(2, 2), pool2_pool_size=(2, 2),
+    conv3_num_filters=128, conv3_filter_size=(2, 2), pool3_pool_size=(2, 2),
+    hidden4_num_units=500, hidden5_num_units=500,
+    output_num_units=30, output_nonlinearity=None,
 
-                ],
+    update_learning_rate=0.01,
+    update_momentum=0.9,
 
-        #layer parameters for every layer
-        #refer to the layer using it's prefix
+    regression=True,
+    max_epochs=400,
+    verbose=1,
+    )
 
-        #96X96 input pixels per batch
-        #None -  gives us variable batch sizes
-        input_shape = (None, 9216),
+X, y = load2d()  # load 2-d data
+net2.fit(X, y)
 
-        #number of hidden units in a layer
-        hidden_num_units = 100,
-
-        #Output layer uses identity function
-        #Using this, the output unit's activation becomes a linear combination of activations in the hidden layer.
-
-        #Sine we haven't chosen anything for the hidden layer
-        #the default non linearity is rectifier, which is chosen as the activation function of the hidden layer. 
-        output_nonlinearity = None,
-
-        #30 target values
-        output_num_units = 30,
-
-
-        #Optimization Method:
-        #The following parameterize the update function
-        #The update function updates the weight of our network after each batch has been processed.
-
-        update = nesterov_momentum,
-        update_learning_rate = 0.01, #step size of the gradient descent
-        update_momentum = 0.9,
-
-        #Regression flag set to true as this is a regression 
-        #problem and not a classification problem
-        regression=True, 
-
-        max_epochs = 400,
-
-        #speci fies that we wish to output information during training
-        verbose = 1,
-
-
-        #NOTE: Validation set is automatoically chosen as 20% (or 0.2) of the training samples for validation. 
-        #Thus by default, eval_size=0.2 which user can change
-        )
-
-
-#X,y = load()
-net1.fit(X,y)
-#To train the neural nerwork
+'''
+# Training for 1000 epochs will take a while.  We'll pickle the
+# trained model so that we can load it back later:
+import cPickle as pickle
+with open('net2.pickle', 'wb') as f:
+    pickle.dump(net2, f, -1)
+'''
 
 X, _ = load(test=True)
-y_pred = net1.predict(X)
+y_pred = net2.predict(X)
 y_pred = y_pred*48 + 48
 y_pred = y_pred.clip(0,96)
 
@@ -207,7 +191,7 @@ filename = 'submission-{}.csv'.format(now_str)
 submission.to_csv(filename, index=False)
 print("Wrote {}".format(filename))
 
-#print "first column:", y.values
+#print "first column:", y.values'''
 
 from matplotlib import pyplot
 '''
