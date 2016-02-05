@@ -26,8 +26,8 @@ def load(test=False, cols=None):
 
     #print kp.describe()
 
-    #kp = kp.dropna()
-    kp = kp.fillna(kp.median())
+    kp = kp.dropna()
+    #kp = kp.fillna(kp.median())
     #kp.apply(lambda x: x.fillna(x.mean()),axis=0)
     #kp[kp.columns[:-1]].values = kp[kp.columns[:-1]].values.fillna(kp[kp.columns[:1]].values.median())
     #drop all rows with missing values in them
@@ -40,19 +40,27 @@ def load(test=False, cols=None):
 
     kp['Image'] = kp['Image'].apply(lambda im: np.fromstring(im,sep=' '))
 
-    print kp['Image']
+    #print kp['Image']
 
     X= np.vstack(kp['Image'].values)
-    #scaling pixel values to [0,1]
+    
 
     #Implementing Contrast Stretching
-    p2 = np.percentile(X, 5)
-    p98 = np.percentile(X, 95)
-    X = exposure.rescale_intensity(X, in_range=(p2, p98))
+    
+    p5 = np.percentile(X, 5)
+    p95 = np.percentile(X, 95)
+    X = exposure.rescale_intensity(X, in_range=(p5, p95))
+    
 
+    #Implementing histogram equalization
+
+    #X = exposure.equalize_hist(X)
+    
+
+    #scaling pixel values to [0,1]
     X = X/255
 
-    print X
+    #print X
     
     X= X.astype(np.float32)
     #used to cast the numpy array into float32 type
@@ -65,15 +73,15 @@ def load(test=False, cols=None):
     X = exposure.rescale_intensity(X, in_range=(p2, p98))
     '''
 
-    print 'hello1',X
+    #print 'hello1',X
 
     print kp.columns.values  #outputs column headings
 
-    print 'hello2', kp.columns[:-1].values
+    #print 'hello2', kp.columns[:-1].values
     #doesn't take the image column
     #means take all the columns but the last!
 
-    print 'hello3', kp[kp.columns[:1]].values
+    #print 'hello3', kp[kp.columns[:1]].values
     #fetches the values from the first column: left_eye_centre_x
 
 
@@ -166,7 +174,7 @@ net1 = NeuralNet(
         #problem and not a classification problem
         regression=True, 
 
-        max_epochs = 400,
+        max_epochs = 100,
 
         #speci fies that we wish to output information during training
         verbose = 1,
@@ -190,7 +198,7 @@ y_pred = y_pred.clip(0,96)
 
 df = DataFrame(y_pred, columns = col)
 
-print "Dataframe", df
+#print "Dataframe", df
 
 lookup_table = pandas.read_csv("IdLookupTable.csv")
 values = []
@@ -210,7 +218,7 @@ print("Wrote {}".format(filename))
 #print "first column:", y.values
 
 from matplotlib import pyplot
-'''
+
 train_loss = np.array([i["train_loss"] for i in net1.train_history_])
 valid_loss = np.array([i["valid_loss"] for i in net1.train_history_])
 pyplot.plot(train_loss, linewidth=3, label="train")
@@ -222,4 +230,22 @@ pyplot.ylabel("loss")
 pyplot.ylim(1e-3, 1e-2)
 pyplot.yscale("log")
 pyplot.show()
-'''
+
+
+def plot_sample(x, y, axis):
+    img = x.reshape(96, 96)
+    axis.imshow(img, cmap='gray')
+    axis.scatter(y[0::2] * 48 + 48, y[1::2] * 48 + 48, marker='x', s=10)
+
+X, _ = load(test=True)
+y_pred = net1.predict(X)
+
+fig = pyplot.figure(figsize=(6, 6))
+fig.subplots_adjust(
+    left=0, right=1, bottom=0, top=1, hspace=0.05, wspace=0.05)
+
+for i in range(16):
+    ax = fig.add_subplot(4, 4, i + 1, xticks=[], yticks=[])
+    plot_sample(X[i], y_pred[i], ax)
+
+pyplot.show() 
